@@ -60,30 +60,24 @@ class RepaymentMethod(TimeStampModel):
         db_table = 'repayment_methods'
 
 class Mortgage(TimeStampModel):
-    deal               = models.ForeignKey('Deal', on_delete=models.CASCADE)
-    latitude           = models.DecimalField(max_digits=9, decimal_places=6)
-    longitude          = models.DecimalField(max_digits=9, decimal_places=6)
-    ltv_ratio          = models.DecimalField(max_digits=4, decimal_places=2)
-    appraised_value    = models.IntegerField()
-    senior_loan_amount = models.IntegerField()
-    address            = models.TextField()
-    completed_date     = models.DateField()
-    scale              = models.CharField(max_length=100)
-    supply_area        = models.DecimalField(max_digits=10, decimal_places=2)
-    using_area         = models.DecimalField(max_digits=10, decimal_places=2)
-    floors             = models.CharField(max_length=100)
-    is_usage           = models.BooleanField()
-    selling_point      = models.ForeignKey('SellingPoint', on_delete=models.SET_NULL,null=True)
+    deal                      = models.ForeignKey('Deal', on_delete=models.CASCADE)
+    latitude                  = models.DecimalField(max_digits=9, decimal_places=6)
+    longitude                 = models.DecimalField(max_digits=9, decimal_places=6)
+    estimated_recovery        = models.IntegerField()
+    appraised_value           = models.IntegerField()
+    senior_loan_amount        = models.IntegerField()
+    address                   = models.TextField()
+    completed_date            = models.DateField()
+    scale                     = models.CharField(max_length=100)
+    supply_area               = models.DecimalField(max_digits=10, decimal_places=2)
+    using_area                = models.DecimalField(max_digits=10, decimal_places=2)
+    floors                    = models.CharField(max_length=100)
+    is_usage                  = models.BooleanField()
+    selling_point_title       = models.CharField(max_length=100)
+    selling_point_description = models.TextField()
 
     class Meta:
         db_table = 'mortgages'
-
-class SellingPoint(models.Model):
-    title       = models.CharField(max_length=100)
-    description = models.TextField()
-
-    class Meta:
-        db_table = 'selling_points'
 
 class MortgageImage(models.Model):
     mortgage  = models.ForeignKey('Mortgage', on_delete=models.CASCADE)
