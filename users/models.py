@@ -3,10 +3,10 @@ from django.db  import models
 from core.models    import TimeStampModel
 
 class User(TimeStampModel):
-    email                     = models.CharField(max_length=100, unique=True)
+    email                     = models.CharField(max_length=100, unique=True, null=True)
     password                  = models.CharField(max_length=200, null=True)
     name                      = models.CharField(max_length=100)
-    kakao_id                  = models.IntegerField(null=True, unique=True)
+    kakao_id                  = models.IntegerField(unique=True, null=True)
     deposit_amount            = models.IntegerField(default=10000000)
     deposit_account           = models.CharField(max_length=50, unique=True)
     deposit_bank              = models.ForeignKey('Bank', related_name='deposit_bank', on_delete=models.PROTECT)
