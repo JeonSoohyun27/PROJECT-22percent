@@ -3,7 +3,6 @@ import bcrypt, jwt
 
 from django.http      import JsonResponse
 from django.views     import View
-from django.db        import IntegrityError
 
 from users.models   import User
 from users.utils    import create_random_account
@@ -38,6 +37,25 @@ class EmailSignupView(View):
             access_token = jwt.encode({"user_id": user.id}, SECRET_KEY, ALGORITHM)
 
             return JsonResponse({"accessToken": access_token}, status=201)
+
+        except KeyError:
+            return JsonResponse({"message": "KEY_ERROR"}, status=400)
+
+class EmailSigninView(View):
+    def post(self, request):
+        try:
+            data = json.loads(request.body)
+            user = User.objects.get(email=data['email'])
+            
+            if not bcrypt.checkpw(data['password'].encode('utf-8'), user.password.encode('utf-8')):
+                return JsonResponse({"message": "INVALID_USER"}, status=401)
+
+            access_token = jwt.encode({"user_id": user.id}, SECRET_KEY, ALGORITHM)
+            
+            return JsonResponse({"accessToken": access_token}, status=200)
+
+        except User.DoesNotExist:
+            return JsonResponse({"message": "INVALID_USER"}, status=401)
 
         except KeyError:
             return JsonResponse({"message": "KEY_ERROR"}, status=400)
