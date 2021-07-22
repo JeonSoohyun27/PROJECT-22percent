@@ -1,5 +1,6 @@
 import json, re
 import bcrypt, jwt
+import requests
 
 from django.http      import JsonResponse
 from django.views     import View
@@ -10,6 +11,8 @@ from my_settings    import SECRET_KEY, ALGORITHM
 
 EMAIL_REGEX    = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
 PASSWORD_REGEX = r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$'
+
+KAKAO_USER_INFO_URL = "https://kapi.kakao.com/v2/user/me"
 
 class EmailSignupView(View):
     def post(self, request):
@@ -57,5 +60,34 @@ class EmailSigninView(View):
         except User.DoesNotExist:
             return JsonResponse({"message": "INVALID_USER"}, status=401)
 
+        except KeyError:
+            return JsonResponse({"message": "KEY_ERROR"}, status=400)
+
+class KakaoSigninView(View):
+    def post(self, request):
+        try:
+            kakao_access_token = request.headers.get('Authorization', None)
+
+            if not kakao_access_token:
+                return JsonResponse({"message": "NEED_LOGIN"}, status=401)
+
+            headers  = {"Authorization": f"Bearer {kakao_access_token}"}
+            response = requests.post(KAKAO_USER_INFO_URL, headers=headers)
+
+            kakao_profile = response.json() 
+            kakao_id      = kakao_profile['id']
+
+            user, is_created = User.objects.get_or_create(
+                kakao_id = kakao_id,
+                defaults = {
+                    'deposit_bank_id' : 1,
+                    'deposit_account' : create_random_account()
+                }
+            )
+
+            access_token = jwt.encode({"user_id": user.id}, SECRET_KEY, ALGORITHM)
+
+            return JsonResponse({"accessToken": access_token}, status=(201 if is_created else 200))
+    
         except KeyError:
             return JsonResponse({"message": "KEY_ERROR"}, status=400)
