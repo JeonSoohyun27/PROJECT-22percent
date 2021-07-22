@@ -42,7 +42,7 @@ class DealGrade(TimeStampModel):
         db_table = 'deal_grades'
 
 class DealStatus(TimeStampModel):
-    name = models.CharField(max_length=10)
+    name = models.CharField(max_length=100)
 
     class Meta:
         db_table = 'deal_statuses'
