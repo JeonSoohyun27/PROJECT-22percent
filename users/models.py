@@ -1,6 +1,11 @@
+import re
+
 from django.db  import models
 
 from core.models    import TimeStampModel
+
+EMAIL_REGEX    = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+PASSWORD_REGEX = r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$'
 
 class User(TimeStampModel):
     email                     = models.CharField(max_length=100, unique=True, null=True)
@@ -18,6 +23,16 @@ class User(TimeStampModel):
     mortgage_invest_limit     = models.IntegerField(default=5000000)
     deal                      = models.ManyToManyField('deals.Deal', through='investments.UserDeal')
     is_activate               = models.BooleanField(default=True)
+
+    @staticmethod
+    def validate_regex(data):    
+        if not re.match(EMAIL_REGEX, data['email']):
+            return False
+
+        if not re.match(PASSWORD_REGEX, data['password']):
+            return False 
+
+        return True
 
     class Meta:
         db_table = 'users'

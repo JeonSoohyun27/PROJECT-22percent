@@ -44,9 +44,8 @@ class EmailSignupTest(TestCase):
         client = Client()
         user = {
             'email': 'BrendanEich@gmail.com',
-            'passwrod': "P@ssW0rd"
+            'password': "P@ssW0rd"
         }
-
         response = client.post('/users/signup', json.dumps(user), content_type='application/json')
         
         self.assertEqual(response.status_code, 400)
@@ -62,7 +61,7 @@ class EmailSignupTest(TestCase):
         response = client.post('/users/signup', json.dumps(user), content_type='application/json')
 
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json(), {"message": "INVALID_EMAIL"})
+        self.assertEqual(response.json(), {"message": "VALIDATION_ERROR"})
 
     def test_email_signup_post_invalid_password(self):
         client = Client()
@@ -74,7 +73,7 @@ class EmailSignupTest(TestCase):
         response = client.post('/users/signup', json.dumps(user), content_type='application/json')
 
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json(), {"message": "INVALID_PASSWORD"})
+        self.assertEqual(response.json(), {"message": "VALIDATION_ERROR"})
 
     def test_email_signup_post_key_error(self):
         client = Client()
