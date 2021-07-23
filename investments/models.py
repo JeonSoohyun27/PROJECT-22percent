@@ -1,4 +1,5 @@
-from django.db  import models
+from django.utils.translation import gettext_lazy as _
+from django.db                import models
 
 from core.models    import TimeStampModel
 
@@ -14,30 +15,34 @@ class UserDeal(TimeStampModel):
         ]
 
 class UserPayback(TimeStampModel):
+    class State(models.IntegerChoices):
+        TOBE_PAID = 1, _('to be paid')
+        PAID      = 2, _('paid')
+        UNPAID    = 3, _('unpaid')
+
     users_deals   = models.ForeignKey('UserDeal', on_delete=models.PROTECT)
     principal     = models.IntegerField()
     interest      = models.IntegerField()
     tax           = models.IntegerField()
     commission    = models.IntegerField()
     payback_round = models.IntegerField()
-    state         = models.ForeignKey('PaybackState', on_delete=models.PROTECT)
+    state         = models.IntegerField(choices=State.choices)
     payback_date  = models.DateField()
 
     class Meta:
         db_table = 'user_paybacks'
 
-class PaybackState(TimeStampModel):
-    name = models.CharField(max_length=100)
-
-    class Meta:
-        db_table = 'payback_states'
-
 class DebtorPayback(TimeStampModel):
+    class State(models.IntegerChoices):
+        TOBE_PAID = 1, _('to be paid')
+        PAID      = 2, _('paid')
+        UNPAID    = 3, _('unpaid')
+
     deal          = models.ForeignKey('deals.Deal', on_delete=models.PROTECT)
     principal     = models.IntegerField()
     interest      = models.IntegerField()
     payback_round = models.IntegerField()
-    state         = models.ForeignKey('PaybackState', on_delete=models.PROTECT)
+    state         = models.IntegerField(choices=State.choices)
     payback_date  = models.DateField()
 
     class Meta:
