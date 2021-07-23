@@ -1,5 +1,4 @@
-from django.utils.translation import gettext_lazy as _
-from django.db                import models
+from django.db  import models
 
 from core.models    import TimeStampModel
 
@@ -16,9 +15,9 @@ class UserDeal(TimeStampModel):
 
 class UserPayback(TimeStampModel):
     class State(models.IntegerChoices):
-        TOBE_PAID = 1, _('to be paid')
-        PAID      = 2, _('paid')
-        UNPAID    = 3, _('unpaid')
+        TOBE_PAID = 1, '지급예정' 
+        PAID      = 2, '지급완료'
+        UNPAID    = 3, '미지급'
 
     users_deals   = models.ForeignKey('UserDeal', on_delete=models.PROTECT)
     principal     = models.IntegerField()
@@ -34,9 +33,9 @@ class UserPayback(TimeStampModel):
 
 class DebtorPayback(TimeStampModel):
     class State(models.IntegerChoices):
-        TOBE_PAID = 1, _('to be paid')
-        PAID      = 2, _('paid')
-        UNPAID    = 3, _('unpaid')
+        TOBE_PAID = 1, '지급예정' 
+        PAID      = 2, '지급완료'
+        UNPAID    = 3, '미지급'
 
     deal          = models.ForeignKey('deals.Deal', on_delete=models.PROTECT)
     principal     = models.IntegerField()

@@ -1,15 +1,14 @@
-from django.utils.translation import gettext_lazy as _
-from django.db                import models
+from django.db  import models
 
 from core.models    import TimeStampModel
 
 class Deal(TimeStampModel):
     class Category(models.IntegerChoices):
-        MORTGAGE = 1, _('Mortgage')
-        CREDIT   = 2, _('Credit')
-        SPECIAL  = 3, _('Special')
-        COMPANY  = 4, _('Company')
-        ETC      = 5, _('etc')
+        MORTGAGE = 1, '부동산 담보대출' 
+        CREDIT   = 2, '개인신용'
+        SPECIAL  = 3, '스페셜딜'
+        COMPANY  = 4, '기업'
+        ETC      = 5, '기타'
 
     class Grade(models.IntegerChoices):
         A_PLUS  = 1, 'A+'
@@ -26,19 +25,19 @@ class Deal(TimeStampModel):
         D_MINUS = 12, 'D-'
 
     class Status(models.IntegerChoices):
-        APPLYING              = 1, _('Applying')
-        NORMAL                = 2, _('Normal repayment')
-        DELAY                 = 3, _('Delay')
-        OVERDUE               = 4, _('Overdue')
-        NONPERFORM            = 5, _('Nonperforming loan')
-        NORMAL_COMPLETION     = 6, _('Normal repayment completed')
-        NONPERFORM_COMPLETION = 7, _('Nonperforming loan completed')
+        APPLYING              = 1, '신청중' 
+        NORMAL                = 2, '정상'
+        DELAY                 = 3, '상환지연'
+        OVERDUE               = 4, '연체'
+        NONPERFORM            = 5, '부실'
+        NORMAL_COMPLETION     = 6, '정상상환완료'
+        NONPERFORM_COMPLETION = 7, '부실상환완료'
 
     class RepaymentMethod(models.IntegerChoices):
-        MIX             = 1, _('Mix')
-        EQUAL_SUM       = 2, _('Equal principal and interest')
-        MATURE          = 3, _('Redemption at maturity')
-        EQUAL_PRINCIPAL = 4, _('Equal repayment of principal')
+        MIX             = 1, '혼합'
+        EQUAL_SUM       = 2, '원리금균등'
+        MATURE          = 3, '만기상환'
+        EQUAL_PRINCIPAL = 4, '원금균등'
 
     name             = models.CharField(max_length=100)
     category         = models.IntegerField(choices=Category.choices)
@@ -71,12 +70,6 @@ class CreditScore(TimeStampModel):
 
     class Meta:
         db_table = 'credit_scores'
-
-class RepaymentMethod(TimeStampModel):
-    name = models.CharField(max_length=100)
-
-    class Meta:
-        db_table = 'repayment_methods'
 
 class Mortgage(TimeStampModel):
     deal                      = models.ForeignKey('Deal', on_delete=models.CASCADE)
