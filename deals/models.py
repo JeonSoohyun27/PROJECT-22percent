@@ -32,6 +32,7 @@ class Deal(TimeStampModel):
         NONPERFORM            = 5, '부실'
         NORMAL_COMPLETION     = 6, '정상상환완료'
         NONPERFORM_COMPLETION = 7, '부실상환완료'
+        SCHEDULED             = 8, '모집예정'
 
     class RepaymentMethod(models.IntegerChoices):
         MIX             = 1, '혼합'
