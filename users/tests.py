@@ -6,8 +6,9 @@ from django.test import TestCase, Client
 
 from users.models   import User, Bank
 
-class EmailSignupTest(TestCase):
-    def setUp(self):
+class EmailSignupTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
         Bank.objects.create(
             id   = 1,
             name = "농협은행"
@@ -21,10 +22,6 @@ class EmailSignupTest(TestCase):
             deposit_bank_id = 1,
             deposit_account = "12345678901234567",
         )
-
-    def tearDown(self):
-        User.objects.all().delete()
-        Bank.objects.all().delete()
 
     def test_email_signup_post_success(self):
         client = Client()
@@ -87,8 +84,9 @@ class EmailSignupTest(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json(), {"message": "KEY_ERROR"})
 
-class EmailSigninTest(TestCase):
-    def setUp(self):
+class EmailSigninTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
         Bank.objects.create(
             id = 1,
             name = "농협은행"
@@ -103,10 +101,6 @@ class EmailSigninTest(TestCase):
             deposit_account = "12345678901234567",
 
         )
-
-    def tearDown(self):
-        User.objects.all().delete()
-        Bank.objects.all().delete()
 
     def test_email_signin_post_success(self):
         client = Client()
@@ -159,8 +153,9 @@ class EmailSigninTest(TestCase):
         self.assertEqual(response.json(), {"message": "KEY_ERROR"})
 
 @patch('users.views.requests')
-class KakaoSigninTest(TestCase):
-    def setUp(self):
+class KakaoSigninTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
         Bank.objects.create(
             id   = 1,
             name = "농협은행"
@@ -172,10 +167,6 @@ class KakaoSigninTest(TestCase):
             deposit_bank_id = 1,
             deposit_account = "12345678901234"
         )
-
-    def tearDown(self):
-        User.objects.all().delete()
-        Bank.objects.all().delete()
 
     @patch('users.views.requests')
     def test_kakao_signin_get_signup_success(self, request, mocked_requests):
