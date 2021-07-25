@@ -1,8 +1,8 @@
-import json
-from datetime   import datetime, timedelta
+import xlwt
+import urllib
 
 from django.views     import View
-from django.http      import JsonResponse
+from django.http      import JsonResponse, HttpResponse
 from django.utils     import timezone
 from django.db.models import Sum, Q, Prefetch
 
@@ -125,25 +125,25 @@ class InvestmentSummaryView(View):
             }
 
         applying_invest_amount   = user_deals_by_status_sums['APPLYING']['total_amount'] - \
-                                   user_deals_by_status_sums['APPLYING']['paid_principal']
+                                    user_deals_by_status_sums['APPLYING']['paid_principal']
         normal_invest_amount     = user_deals_by_status_sums['NORMAL']['total_amount'] - \
-                                   user_deals_by_status_sums['NORMAL']['paid_principal']
+                                    user_deals_by_status_sums['NORMAL']['paid_principal']
         delay_invest_amount      = user_deals_by_status_sums['DELAY']['total_amount'] - \
-                                   user_deals_by_status_sums['DELAY']['paid_principal']
+                                    user_deals_by_status_sums['DELAY']['paid_principal']
         overdue_invest_amount    = user_deals_by_status_sums['OVERDUE']['total_amount'] - \
-                                   user_deals_by_status_sums['OVERDUE']['paid_principal']
+                                    user_deals_by_status_sums['OVERDUE']['paid_principal']
         nonperform_invest_amount = user_deals_by_status_sums['NONPERFORM']['total_amount'] - \
-                                   user_deals_by_status_sums['NONPERFORM']['paid_principal']
+                                    user_deals_by_status_sums['NONPERFORM']['paid_principal']
         loss_amount              = user_deals_by_status_sums['NONPERFORM_COMPLETION']['total_amount'] - \
-                                   user_deals_by_status_sums['NONPERFORM_COMPLETION']['paid_principal']
+                                    user_deals_by_status_sums['NONPERFORM_COMPLETION']['paid_principal']
 
         invested_amount = sum(value['total_amount'] for value in user_deals_by_status_sums.values())
         complete_amount = sum(value['paid_principal'] for value in user_deals_by_status_sums.values())
         invest_amount   = applying_invest_amount + normal_invest_amount + delay_invest_amount + \
-                          overdue_invest_amount + nonperform_invest_amount
+                            overdue_invest_amount + nonperform_invest_amount
 
         paid_revenue = sum(value['paid_interest'] for value in user_deals_by_status_sums.values()) - \
-                       sum(value['paid_commission'] for value in user_deals_by_status_sums.values())
+                        sum(value['paid_commission'] for value in user_deals_by_status_sums.values())
 
         total_revenue = sum(value['total_interest'] for value in user_deals_by_status_sums.values()) - \
                         sum(value['total_commission'] for value in user_deals_by_status_sums.values())
@@ -193,3 +193,67 @@ class InvestmentSummaryView(View):
         }
 
         return JsonResponse({"results": results}, status=200)
+        
+class XlsxExportView(View):
+    @user_validator
+    def get(self, request):
+        filename                        = urllib.parse.quote(
+            f'[{timezone.localdate().strftime("%Y-%m-%d")}] 투자 내역 다운로드.xlsx'.encode('utf-8')
+            )
+        response                        = HttpResponse(content_type="application/vnd.ms-excel")
+        response["Content-Disposition"] = 'attachment;filename*=UTF-8\'\'%s' % filename
+        wb                              = xlwt.Workbook(encoding='ansi')
+        ws                              = wb.add_sheet('투자내역')
+        signed_user                     = request.user
+
+        row_number = 0
+        column_names = [
+            '투자일',
+            '상품호수', 
+            '상품명', 
+            '등급', 
+            '예상수익률(%)', 
+            '투자기간(개월)', 
+            '투자금액', 
+            '지급받은 원금', 
+            '지급받은 이자',
+            '세금', 
+            '커미션'
+            ]
+
+        for index, column_name in enumerate(column_names):
+            ws.write(row_number, index, column_name)
+
+
+        investments = UserDeal.objects.filter(user=signed_user).select_related('deal').prefetch_related(
+                    Prefetch('userpayback_set', to_attr='paybacks'),
+                    Prefetch(
+                        'userpayback_set', 
+                        queryset=UserPayback.objects.filter(state=UserPayback.State.PAID.value), 
+                        to_attr='paid_paybacks')
+                    )
+
+        rows = [
+            [
+                timezone.localtime(investment.created_at).strftime("%Y-%m-%d"),
+                investment.id,
+                investment.deal.name,
+                Deal.Grade(investment.deal.grade).label,
+                investment.deal.earning_rate,
+                investment.deal.repayment_period,
+                investment.amount,
+                sum(paid_payback.principal for paid_payback in investment.paid_paybacks),
+                sum(paid_payback.interest for paid_payback in investment.paid_paybacks),
+                sum(paid_payback.tax for paid_payback in investment.paid_paybacks),
+                sum(paid_payback.commission for paid_payback in investment.paid_paybacks)
+            ] for investment in investments
+        ]
+
+        for row in rows:
+            row_number +=1
+            for column_number, attribute in enumerate(row):
+                ws.write(row_number, column_number, attribute)
+
+        wb.save(response)
+
+        return response
