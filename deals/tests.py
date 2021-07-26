@@ -143,7 +143,6 @@ class DealDetailViewTestCase(TestCase):
             }
         }
     )
-
     def test_deal_detail_category_2_success(self):
         client   = Client()
         response = client.get('/deals/2')

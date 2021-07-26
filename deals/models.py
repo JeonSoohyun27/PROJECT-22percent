@@ -1,6 +1,6 @@
-from django.db  import models
+from django.db    import models
 
-from core.models    import TimeStampModel
+from core.models  import TimeStampModel
 
 class Deal(TimeStampModel):
     class Category(models.IntegerChoices):

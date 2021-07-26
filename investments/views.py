@@ -12,6 +12,7 @@ from users.utils        import user_validator
 from investments.utils  import Portfolio
 from investments.models import PaybackSchedule, UserDeal, UserPayback
 from deals.models       import Deal
+from users.models       import User
 
 class InvestmentHistoryView(View):
     @user_validator
@@ -310,9 +311,39 @@ class InvestmentDealView(View):
 
         except KeyError:
             return JsonResponse({"message": "KEY_ERROR"}, status=400)
-        
+
         except Deal.DoesNotExist:
             return JsonResponse({"message": "INVALID_DEAL"}, status=400)
-
+        
         except IntegrityError:
             return JsonResponse({"message": "INVESTD_DEAL"}, status=400)
+            
+    @user_validator
+    def get(self, request):
+        try:
+            user     = request.user
+            deals_id = request.GET.get('deals').split(",")
+            deals    = Deal.objects.filter(id__in=deals_id)
+
+            invest_info = [{
+                    "id"              : deal.id,
+                    "name"            : deal.name,
+                    "category"        : Deal.Category(deal.category).label,
+                    "grade"           : Deal.Grade(deal.grade).label,
+                    "earningRate"     : deal.earning_rate,
+                    "repaymentPeriod" : deal.repayment_period,
+                    "amount"          : deal.userdeal_set.aggregate(total_price=Sum('amount'))['total_price'] or 0,
+                    "investmentOption": [option.value for option in PaybackSchedule.Option]
+            } for deal in deals]
+
+            results = {
+                'investInfo'     : invest_info,
+                'depositAmount'  : user.deposit_amount,
+                'name'           : user.name,
+                'depositBank'    : user.deposit_bank.name,
+                'depositAccount' : user.deposit_account,
+            }
+
+            return JsonResponse({"results" : results}, status=200)
+        except Deal.DoesNotExist:                                   
+            return JsonResponse({"message":"INVALID_ERROR"}, status=400)
