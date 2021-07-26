@@ -22,7 +22,6 @@ class EmailSignupView(View):
 
             if User.objects.filter(email=data['email']).exists():
                 return JsonResponse({"message": "DUPLICATE_EMAIL"}, status=400)
-
             hashed_password = bcrypt.hashpw(data['password'].encode('utf-8'), bcrypt.gensalt())
             user = User.objects.create(
                 email           = data['email'],
