@@ -61,6 +61,7 @@ class PaybackSchedule(TimeStampModel):
     principal     = models.IntegerField(choices=Option.choices)
     interest      = models.IntegerField()
     tax           = models.IntegerField()
+    commission    = models.IntegerField()
     payback_round = models.IntegerField()
     payback_date  = models.DateField()
 
