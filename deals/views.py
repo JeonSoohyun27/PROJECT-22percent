@@ -1,9 +1,11 @@
-import json
-from django.db.models.aggregates import Sum
+import math
+
+from django.db.models import Sum, Prefetch, Q, F
 from django.views     import View
 from django.http      import JsonResponse
-from deals.models        import Deal, Debtor, Mortgage, MortgageImage, CreditScore
-from investments.models  import UserDeal
+from django.utils     import timezone
+
+from deals.models       import Deal, Mortgage, MortgageImage
 
 class DealDetailView(View):
     def get(self, request, deal_id):
@@ -48,3 +50,84 @@ class DealDetailView(View):
             return JsonResponse({"dealInfo":deal_info}, status=200)
         except Deal.DoesNotExist:
             return JsonResponse({"message":"INVALID_ERROR"}, status=400)
+
+class DealsView(View):
+    def get(self, request):
+        try:
+            deal_closed = request.GET.get('closed', False)
+            category    = request.GET.get('category', False)
+            PAGE_SIZE   = 12
+            q           = Q()
+            offset      = int(request.GET.get('offset', 0))
+            limit       = int(request.GET.get('limit', PAGE_SIZE)) + offset
+
+            categories = {
+                'mortgage'  : Deal.Category.MORTGAGE.value,
+                'individual': Deal.Category.CREDIT.value
+            }
+
+            if category not in categories:
+                return JsonResponse({"message":"INVALID_INPUT"}, status=400)
+
+            q.add(Q(category=categories[category]), q.AND)
+            
+            if deal_closed == 'true' and categories[category] == Deal.Category.MORTGAGE.value:
+                q.add(Q(end_date__lt=timezone.localdate()) | Q(net_reservation=F('net_amount')), q.AND)
+
+            else:
+                limit  = None
+                q.add(Q(end_date__gte=timezone.localdate()) & Q(start_date__lte=timezone.localdate()), q.AND)
+
+            deals = Deal.objects.annotate(net_reservation=Sum('userdeal__amount')).filter(q).prefetch_related(
+                Prefetch(
+                    'mortgage_set', 
+                    queryset=Mortgage.objects.prefetch_related(
+                        Prefetch(
+                            'mortgageimage_set', 
+                            queryset=MortgageImage.objects.all(), 
+                            to_attr='image')
+                            ), to_attr='mortgages'))
+
+            results = [
+                {
+                    'index'           : deal.id,
+                    'title'           : deal.name,
+                    'grade'           : Deal.Grade(deal.grade).label,
+                    'period'          : deal.repayment_period,
+                    'earningRate'     : deal.earning_rate,
+                    'amount'          : deal.net_amount,
+                    'titleImage'      : deal.mortgages[0].image[0].image_url\
+                                        if categories[category] == Deal.Category.MORTGAGE.value else None,
+                    'startDate'       : deal.start_date,
+                    'progress'        : math.trunc(((deal.net_reservation or 0) / deal.net_amount) * 100),
+                    'investmentAmount': deal.net_reservation or 0
+                } for deal in deals[offset:limit]
+            ]
+
+            if deal_closed != 'true' and categories[category] == Deal.Category.MORTGAGE.value:
+                scheduled_results = [
+                    {
+                        'index'      : deal.id,
+                        'title'      : deal.name,
+                        'period'     : deal.repayment_period,
+                        'earningRate': deal.earning_rate,
+                        'amount'     : deal.net_amount,
+                        'titleImage' : deal.mortgages[0].image[0].image_url,
+                        'startDate'  : deal.start_date
+                    } for deal in Deal.objects.filter(start_date__gt=timezone.localtime()).prefetch_related(
+                Prefetch(
+                    'mortgage_set', 
+                    queryset=Mortgage.objects.prefetch_related(
+                        Prefetch(
+                            'mortgageimage_set', 
+                            queryset=MortgageImage.objects.all(), 
+                            to_attr='image')
+                            ), to_attr='mortgages'))
+                ]
+
+                return JsonResponse({"recruitingResults": results, "scheduledResults": scheduled_results}, status=200)
+            
+            return JsonResponse({"results":results, "count":len(deals)}, status=200)
+
+        except ValueError:
+            return JsonResponse({"message":"VALUE_ERROR"}, status=400)
