@@ -44,6 +44,7 @@ class Deal(TimeStampModel):
     category         = models.IntegerField(choices=Category.choices)
     grade            = models.IntegerField(choices=Grade.choices)
     earning_rate     = models.DecimalField(max_digits=4, decimal_places=2)
+    interest_rate    = models.DecimalField(max_digits=4, decimal_places=2)
     repayment_period = models.IntegerField()
     repayment_method = models.IntegerField(choices=RepaymentMethod.choices)
     net_amount       = models.IntegerField()
