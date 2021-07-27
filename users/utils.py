@@ -10,12 +10,12 @@ from my_settings    import SECRET_KEY, ALGORITHM
 def user_validator(function):
     def wrapper(self, request, *args, **kwargs):
         try:
-            acces_token = request.headers.get('Authorization', None)
+            access_token = request.headers.get('Authorization', None)
 
-            if not acces_token:
+            if not access_token:
                 return JsonResponse({"message": "NEED_LOGIN"}, status=401)
 
-            payload      = jwt.decode(acces_token, SECRET_KEY, ALGORITHM)
+            payload      = jwt.decode(access_token, SECRET_KEY, ALGORITHM)
             user         = User.objects.get(id=payload["user_id"])
             request.user = user
 

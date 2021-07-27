@@ -734,5 +734,241 @@ class InvestmentPortfolioTestCase(TestCase):
             }
         })
 
+class InvestmentSummaryTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        Bank.objects.create(
+            id   = 1,
+            name = "농협은행"
+        )
+
+        TOTAL_USER   = 1
+        TOTAL_DEBTOR = 10
+        TOTAL_DEAL   = 10
+
+        hashed_password = bcrypt.hashpw("P@ssword".encode('utf-8'), bcrypt.gensalt())
+        User.objects.create(
+            id              = 1,
+            email           = "example@gmail.com",
+            password        = hashed_password.decode(),
+            deposit_bank_id = 1,
+            deposit_account = "12344567",
+            deposit_amount  = 5000
+        )
+
+        for i in range(1, TOTAL_DEBTOR + 1):
+            Debtor.objects.create(
+                id         = i,
+                name       = f"채무자_{i}",
+                birth_date = "2020-01-01"
+            )
+
+        userdeal_id    = 1
+        userpayback_id = 1
+        today          = datetime.today().date()
+        delay_day      = today - timedelta(days=30)
+        overdue_day    = today - timedelta(days=90)
+        nonperform_day = today - timedelta(days=150)
+        for i in range(1, TOTAL_DEAL + 1):
+            if i % 2 == 0:
+                deal_status = Deal.Status.NORMAL_COMPLETION.value
+            elif i % 3 == 0:
+                deal_status = Deal.Status.NORMAL.value
+            else:
+                deal_status = ((i+1)//2) % 8 + 1
+            deal_repayment_method         = i % 4 + 1
+            deal_category                 = i % 5 + 1
+            deal_grade                    = i % 12 + 1
+            deal_amount                   = (i % 50 + 1) * 120000
+            deal_interest_rate_per_month  = (i % 12 + 5) / 100 / 12
+            deal_repayment_period         = 12
+            deal_repayment_day            = i % 25 + 1
+
+            userdeal_total_principal = deal_amount // TOTAL_USER
+            # Calculate Start Date & End Date by Deal Status
+            if deal_status == Deal.Status.SCHEDULED.value: # 모집예정
+                delta_day = -10
+
+            elif deal_status == Deal.Status.APPLYING.value: # 신청중
+                delta_day = 10
+                userdeal_total_principal *= 0.5
+
+            elif deal_status == Deal.Status.NORMAL_COMPLETION.value or \
+                 deal_status == Deal.Status.NONPERFORM_COMPLETION.value: # 정상상환완료, 부실상환완료
+                delta_day = 600
+
+            else: # 정상, 상환지연, 연체, 부실
+                delta_day = (10 * i) % 300 + 60
+            
+            start_date = today - timedelta(days=delta_day)
+            end_date   = start_date + timedelta(days=30)
+            
+            # Calculate total_amount_per_month by Deal Repayment Method
+            if deal_repayment_method == Deal.RepaymentMethod.MIX.value: # 혼합
+                total_amount_per_month = userdeal_total_principal / 20
+
+            elif deal_repayment_method == Deal.RepaymentMethod.EQUAL_SUM.value: # 원리금균등
+                tmp = (1 + deal_interest_rate_per_month) ** deal_repayment_period
+                total_amount_per_month = userdeal_total_principal * deal_interest_rate_per_month * tmp / (tmp - 1)
+
+            # Calculate Deal Earning Rate  
+            if deal_repayment_method == Deal.RepaymentMethod.MIX.value or \
+               deal_repayment_method == Deal.RepaymentMethod.EQUAL_SUM.value: # 혼합 or 원리금균등
+                interest = 0
+                left_principal = userdeal_total_principal
+                for _ in range(deal_repayment_period):
+                    interest       += left_principal * deal_interest_rate_per_month
+                    left_principal -= (total_amount_per_month - interest)
+
+                deal_earning_rate = interest / userdeal_total_principal * 100
+
+            elif deal_repayment_method == Deal.RepaymentMethod.MATURE.value:  # 만기상환
+                deal_earning_rate = deal_interest_rate_per_month * 12 * 100
+
+            elif deal_repayment_method == Deal.RepaymentMethod.EQUAL_PRINCIPAL.value:  # 원금균등
+                deal_earning_rate = (deal_repayment_period + 1) / 2 * deal_interest_rate_per_month
+
+            Deal.objects.create(
+                id               = i,
+                name             = f"deal_{i}",
+                category         = deal_category,
+                grade            = deal_grade,
+                earning_rate     = deal_earning_rate,
+                interest_rate    = deal_interest_rate_per_month * 12,
+                repayment_period = deal_repayment_period,
+                repayment_method = deal_repayment_method,
+                net_amount       = deal_amount,
+                repayment_day    = deal_repayment_day,
+                start_date       = start_date,
+                end_date         = end_date,
+                reason           = f"reason_{i}",
+                debtor_id        = i % TOTAL_DEBTOR + 1,
+                status           = deal_status
+            )
+
+            if deal_category == 1:  # 부동산 담보대출
+                Mortgage.objects.create(
+                    id                        = i // 5 + 1,
+                    deal_id                   = i,
+                    latitude                  = 11.111111,
+                    longitude                 = 22.222222,
+                    estimated_recovery        = 1200000000,
+                    appraised_value           = 1000000000,
+                    senior_loan_amount        = 200000000,
+                    address                   = f"address_{i//5+1}",
+                    completed_date            = '2020-01-01',
+                    scale                     = 'scale',
+                    supply_area               = 30.00,
+                    using_area                = 25.00,
+                    floors                    = 'floors',
+                    is_usage                  = i % 2,
+                    selling_point_title       = 'selling_point_title',
+                    selling_point_description = 'selling_point_description'
+                )
+
+                MortgageImage.objects.create(
+                    id = i // 5 + 1,
+                    mortgage_id = i // 5 + 1,
+                    image_url   = "mortgage_image_url"
+                )
+
+            if deal_status == Deal.Status.SCHEDULED.value: # 모집예정
+                continue
+            
+            for j in range(1, TOTAL_USER + 1):
+                UserDeal.objects.create(
+                    id      = userdeal_id,
+                    user_id = j,
+                    deal_id = i,
+                    amount  = userdeal_total_principal
+                )
+                    
+                payback_date   = end_date.replace(day=1) + timedelta(days=32)
+                payback_date   = datetime(payback_date.year, payback_date.month, deal_repayment_day).date()
+                left_principal = userdeal_total_principal
+
+                if deal_repayment_method == Deal.RepaymentMethod.MATURE.value:  # 만기상환
+                    principal = 0
+                elif deal_repayment_method == Deal.RepaymentMethod.EQUAL_PRINCIPAL.value:  # 원금균등
+                    principal = userdeal_total_principal // deal_repayment_period
+
+                for k in range(1, deal_repayment_period + 1):
+                    interest = round(left_principal * deal_interest_rate_per_month)
+
+                    if deal_repayment_method == Deal.RepaymentMethod.MIX.value or \
+                       deal_repayment_method == Deal.RepaymentMethod.EQUAL_SUM.value:  # 혼합, 원리금균등
+                        principal = int(total_amount_per_month - interest)
+                    
+                    state = UserPayback.State.PAID.value    # 신청중, 정상, 정상상환완료
+                    if deal_status == Deal.Status.DELAY.value:
+                        if delay_day < payback_date <= today:   # 상환지연
+                            state = UserPayback.State.UNPAID.value
+                    elif deal_status == Deal.Status.OVERDUE.value:  # 연체
+                        if overdue_day < payback_date <= today:
+                            state = UserPayback.State.UNPAID.value
+                    elif deal_status == Deal.Status.NONPERFORM.value:  # 부실
+                        if nonperform_day < payback_date <= today:
+                            state = UserPayback.State.UNPAID.value
+                    elif deal_status == Deal.Status.NONPERFORM_COMPLETION.value:  # 부실상환완료
+                        if payback_date > end_date + timedelta(days=200):
+                            state = UserPayback.State.UNPAID.value
+
+                    UserPayback.objects.create(
+                        id             = userpayback_id,
+                        users_deals_id = userdeal_id,
+                        interest       = interest,
+                        principal      = principal if k < deal_repayment_period else left_principal,
+                        tax            = ((interest * 0.15) // 10) * 10,
+                        commission     = int(interest * 0.15),
+                        payback_round  = k,
+                        payback_date   = payback_date,
+                        state          = UserPayback.State.TOBE_PAID.value if today < payback_date else state
+                    )
+
+                    userpayback_id += 1
+                    payback_date    = payback_date.replace(day=1) + timedelta(days=32)
+                    payback_date    = datetime(payback_date.year, payback_date.month, deal_repayment_day).date()
+                    left_principal -= principal
+                
+                userdeal_id += 1
+
+    def test_investments_summary_view_success(self):
+        client = Client()
+        
+        access_token = jwt.encode({"user_id": 1}, SECRET_KEY, ALGORITHM)
+        headers      = {'HTTP_AUTHORIZATION': access_token}
+        response     = client.get("/investments/summary", **headers)
+        
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {
+           "results":{
+              "deposit":{
+                 "bank":"농협은행",
+                 "account":"12344567",
+                 "balance":5000
+              },
+              "investLimit":{
+                 "total":30000000,
+                 "remainTotal":26881044,
+                 "remainEstate":9280000
+              },
+              "overview":{
+                 "earningRate":12.52,
+                 "asset":3123956,
+                 "paidRevenue":444066
+              },
+              "investStatus":{
+                 "totalInvest":7800000,
+                 "complete":4681044,
+                 "delay":0,
+                 "invest":3118956,
+                 "loss":0,
+                 "normal":1438956,
+                 "overdue":720000,
+                 "nonperform":960000
+              }
+           }
+        })
+
 if __name__ == '__main__':
     unittest.main()
