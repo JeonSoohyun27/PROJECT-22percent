@@ -5,7 +5,9 @@ from django.views     import View
 from django.http      import JsonResponse
 from django.utils     import timezone
 
-from deals.models       import Deal, Mortgage, MortgageImage
+from deals.models       import Deal, Debtor, Mortgage, MortgageImage, CreditScore
+from investments.models import UserDeal
+from users.models       import User
 
 class DealDetailView(View):
     def get(self, request, deal_id):
@@ -131,3 +133,13 @@ class DealsView(View):
 
         except ValueError:
             return JsonResponse({"message":"VALUE_ERROR"}, status=400)
+
+class LoanAmountView(View):
+    def get(self, request):
+        result = {
+            "loanAcc": UserDeal.objects.filter(deal__end_date__lt=timezone.localdate()).aggregate(Sum('amount'))['amount__sum'],
+            "avgPerPerson": int(UserDeal.objects.aggregate(Sum('amount'))['amount__sum'] / User.objects.count()),
+            "investAcc": UserDeal.objects.count()
+        }
+
+        return JsonResponse({"result": result}, status=200)
