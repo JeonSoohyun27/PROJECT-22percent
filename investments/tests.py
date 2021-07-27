@@ -973,9 +973,6 @@ class InvestmentSummaryTestCase(TestCase):
             }
         )
 
-if __name__ == '__main__':
-    unittest.main()
-
 class XlsxExportTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -1186,3 +1183,161 @@ class XlsxExportTestCase(TestCase):
             response.get('Content-Disposition'),
             "attachment;filename*=UTF-8''%5B2021-07-28%5D%20%ED%88%AC%EC%9E%90%20%EB%82%B4%EC%97%AD%20%EB%8B%A4%EC%9A%B4%EB%A1%9C%EB%93%9C.xlsx"
         )
+
+class InvestmentDealTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        Bank.objects.create(
+            id   = 1,
+            name = "농협은행"
+        )
+
+        hashed_password = bcrypt.hashpw("P@ssword".encode('utf-8'), bcrypt.gensalt())
+        User.objects.create(
+            id              = 1,
+            email           = "example@gmail.com",
+            password        = hashed_password.decode(),
+            deposit_bank_id = 1,
+            deposit_account = "12344567",
+            deposit_amount  = 5000
+        )
+
+        Debtor.objects.create(
+            id         = 1,
+            name       = "debtor_1",
+            birth_date = "2020-01-01"
+        )
+
+        TOTAL_DEAL   = 10
+        today = datetime.today().date()
+        for i in range(1, TOTAL_DEAL + 1):
+            deal_status = 1 if i%2==0 else 8
+
+            # Calculate Start Date & End Date by Deal Status
+            if deal_status == Deal.Status.SCHEDULED.value:
+                delta_day = -10
+
+            elif deal_status == Deal.Status.APPLYING.value:
+                delta_day = 10
+
+            start_date = today - timedelta(days=delta_day)
+            end_date   = start_date + timedelta(days=30)
+
+            deal = Deal.objects.create(
+                id               = i,
+                name             = f"deal_{i}",
+                category         = 1,
+                grade            = 1,
+                earning_rate     = 11.11,
+                interest_rate    = 0.08,
+                repayment_period = 12,
+                repayment_method = 3,
+                net_amount       = 12000000,
+                repayment_day    = 25,
+                start_date       = start_date,
+                end_date         = end_date,
+                reason           = f"reason_{i}",
+                debtor_id        = 1,
+                status           = deal_status
+            )
+
+            for option in PaybackSchedule.Option.__members__:
+                last_payback_date = deal.end_date
+                payback_date      = deal.end_date.replace(day=1) + timedelta(days=65)
+                payback_date      = datetime(payback_date.year, payback_date.month, deal.repayment_day).date()
+                invest_amount     = PaybackSchedule.Option[option]
+                interest_rate     = deal.interest_rate
+                
+                for i in range(1, 13):
+                    interest = round(invest_amount * interest_rate / 365 * (payback_date - last_payback_date).days)
+
+                    PaybackSchedule.objects.create(
+                        deal          = deal,
+                        option        = PaybackSchedule.Option[option],
+                        principal     = 0 if i < 12 else invest_amount,
+                        interest      = interest,
+                        tax           = ((interest * 0.15) // 10) * 10,
+                        commission    = int(interest * 0.15),
+                        payback_round = i,
+                        payback_date  = payback_date
+                    )
+
+                    last_payback_date = payback_date
+                    payback_date      = payback_date.replace(day=1) + timedelta(days=32)
+                    payback_date      = datetime(payback_date.year, payback_date.month, deal.repayment_day).date()
+
+    def test_investment_deal_view_success(self):
+        client = Client()
+
+        access_token = jwt.encode({"user_id": 1}, SECRET_KEY, ALGORITHM)
+        headers      = {'HTTP_AUTHORIZATION': access_token}
+        body         = {
+        	"investments": [
+        		{
+        			"id": 2,
+        			"amount": 5000
+        		},
+        		{
+        			"id": 4,
+        			"amount": 10000
+        		}
+        	]
+        }
+        response = client.post("/investments", json.dumps(body), content_type="application/json", **headers)
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json(), {"message": "SUCCESS"})
+
+    def test_investment_deal_view_invalid_status_deal_error(self):
+        client = Client()
+
+        access_token = jwt.encode({"user_id": 1}, SECRET_KEY, ALGORITHM)
+        headers      = {'HTTP_AUTHORIZATION': access_token}
+        body         = {
+        	"investments": [
+        		{
+        			"id": 3,    # Deal Status is not APPLYING
+        			"amount": 5000
+        		}
+        	]
+        }
+        response = client.post("/investments", json.dumps(body), content_type="application/json", **headers)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json(), {"message": "INVALID_DEAL"})
+
+    def test_investment_deal_view_invalid_deal_id_error(self):
+        client = Client()
+
+        access_token = jwt.encode({"user_id": 1}, SECRET_KEY, ALGORITHM)
+        headers      = {'HTTP_AUTHORIZATION': access_token}
+        body         = {
+        	"investments": [
+        		{
+        			"id": 100, # There are only 10 deals
+        			"amount": 5000
+        		}
+        	]
+        }
+        response = client.post("/investments", json.dumps(body), content_type="application/json", **headers)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json(), {"message": "INVALID_DEAL"})
+    
+    def test_investment_deal_view_invalid_option_error(self):
+        client = Client()
+
+        access_token = jwt.encode({"user_id": 1}, SECRET_KEY, ALGORITHM)
+        headers      = {'HTTP_AUTHORIZATION': access_token}
+        body         = {
+        	"investments": [
+        		{
+        			"id": 2,
+        			"amount": 1234 # No option 1234
+        		}
+        	]
+        }
+        response = client.post("/investments", json.dumps(body), content_type="application/json", **headers)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json(), {"message": "INVALID_OPTION"})

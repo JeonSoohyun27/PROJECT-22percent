@@ -1,14 +1,16 @@
 import xlwt
 import urllib
+import json
 
 from django.views     import View
 from django.http      import JsonResponse, HttpResponse
 from django.utils     import timezone
 from django.db.models import Sum, Q, Prefetch
+from django.db        import transaction
 
 from users.utils        import user_validator
 from investments.utils  import Portfolio
-from investments.models import UserDeal, UserPayback
+from investments.models import PaybackSchedule, UserDeal, UserPayback
 from deals.models       import Deal
 
 class InvestmentHistoryView(View):
@@ -257,3 +259,57 @@ class XlsxExportView(View):
         wb.save(response)
 
         return response
+
+class InvestmentDealView(View):
+    @user_validator
+    def post(self, request):
+        try:
+            user = request.user
+            data = json.loads(request.body)
+
+            user_deals = []
+            for deal_data in data['investments']:
+                deal             = Deal.objects.get(id=deal_data['id'], status=Deal.Status.APPLYING.value)
+                amount           = deal_data['amount']
+                payback_schedule = PaybackSchedule.objects.filter(deal=deal, option=amount)
+
+                if not payback_schedule:
+                    return JsonResponse({"message": "INVALID_OPTION"}, status=400) 
+
+                user_deal = {
+                    'deal'            : deal,
+                    'amount'          : amount,
+                    'payback_schedule': payback_schedule
+                }
+                user_deals.append(user_deal)
+
+            with transaction.atomic():
+                for user_deal in user_deals:
+
+                    userdeal = UserDeal.objects.create(
+                        deal   = user_deal['deal'],
+                        user   = user,
+                        amount = user_deal['amount']
+                    )
+
+                    UserPayback.objects.bulk_create([
+                        UserPayback(
+                            users_deals   = userdeal,
+                            principal     = payback.principal,
+                            interest      = payback.interest,
+                            tax           = payback.tax,
+                            commission    = payback.commission,
+                            payback_round = payback.payback_round,
+                            state         = UserPayback.State.TOBE_PAID.value,
+                            payback_date  = payback.payback_date
+                        ) for payback in user_deal['payback_schedule']
+                    ])
+
+
+            return JsonResponse({"message": "SUCCESS"}, status=201)
+
+        except KeyError:
+            return JsonResponse({"message": "KEY_ERROR"}, status=400)
+        
+        except Deal.DoesNotExist:
+            return JsonResponse({"message": "INVALID_DEAL"}, status=400)
