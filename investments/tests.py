@@ -457,7 +457,7 @@ class InvestmentsSummaryTestCase(TestCase):
             }
         )
 
-class InvestmentDealTestCase(TestCase):
+class InvestmentPortfolioTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
         Bank.objects.create(
@@ -486,7 +486,12 @@ class InvestmentDealTestCase(TestCase):
                 birth_date = "2020-01-01"
             )
 
-        today = datetime.today().date()
+        userdeal_id    = 1
+        userpayback_id = 1
+        today          = datetime.today().date()
+        delay_day      = today - timedelta(days=30)
+        overdue_day    = today - timedelta(days=90)
+        nonperform_day = today - timedelta(days=150)
         for i in range(1, TOTAL_DEAL + 1):
             if i % 2== 0:
                 deal_status = Deal.Status.NORMAL_COMPLETION.value
@@ -494,7 +499,6 @@ class InvestmentDealTestCase(TestCase):
                 deal_status = Deal.Status.NORMAL.value
             else:
                 deal_status = ((i+1)//2) % 8 + 1
-
             deal_repayment_method         = i % 4 + 1
             deal_category                 = i % 5 + 1
             deal_grade                    = i % 12 + 1
@@ -518,10 +522,10 @@ class InvestmentDealTestCase(TestCase):
 
             else:
                 delta_day = (10 * i) % 300 + 60
-
+            
             start_date = today - timedelta(days=delta_day)
             end_date   = start_date + timedelta(days=30)
-
+            
             # Calculate total_amount_per_month by Deal Repayment Method
             if deal_repayment_method == Deal.RepaymentMethod.MIX.value:
                 total_amount_per_month = userdeal_total_principal / 20
@@ -547,7 +551,7 @@ class InvestmentDealTestCase(TestCase):
             elif deal_repayment_method == Deal.RepaymentMethod.EQUAL_PRINCIPAL.value:
                 deal_earning_rate = (deal_repayment_period + 1) / 2 * deal_interest_rate_per_month
 
-            deal = Deal.objects.create(
+            Deal.objects.create(
                 id               = i,
                 name             = f"deal_{i}",
                 category         = deal_category,
@@ -564,71 +568,171 @@ class InvestmentDealTestCase(TestCase):
                 debtor_id        = i % TOTAL_DEBTOR + 1,
                 status           = deal_status
             )
+
+            if deal_category == 1:
+                Mortgage.objects.create(
+                    id                        = i // 5 + 1,
+                    deal_id                   = i,
+                    latitude                  = 11.111111,
+                    longitude                 = 22.222222,
+                    estimated_recovery        = 1200000000,
+                    appraised_value           = 1000000000,
+                    senior_loan_amount        = 200000000,
+                    address                   = f"address_{i//5+1}",
+                    completed_date            = '2020-01-01',
+                    scale                     = 'scale',
+                    supply_area               = 30.00,
+                    using_area                = 25.00,
+                    floors                    = 'floors',
+                    is_usage                  = i % 2,
+                    selling_point_title       = 'selling_point_title',
+                    selling_point_description = 'selling_point_description'
+                )
+
+                MortgageImage.objects.create(
+                    id = i // 5 + 1,
+                    mortgage_id = i // 5 + 1,
+                    image_url   = "mortgage_image_url"
+                )
+
+            if deal_status == Deal.Status.SCHEDULED.value:
+                continue
             
-            for option in PaybackSchedule.Option.__members__:
-                last_payback_date = deal.end_date
-                payback_date      = deal.end_date.replace(day=1) + timedelta(days=32)
-                payback_date      = datetime(payback_date.year, payback_date.month, deal.repayment_day).date()
-                left_principal    = PaybackSchedule.Option[option]
-                interest_rate     = deal.interest_rate
-                
-                if deal.repayment_method == Deal.RepaymentMethod.MATURE.value:
+            for j in range(1, TOTAL_USER + 1):
+                UserDeal.objects.create(
+                    id      = userdeal_id,
+                    user_id = j,
+                    deal_id = i,
+                    amount  = userdeal_total_principal
+                )
+                    
+                payback_date   = end_date.replace(day=1) + timedelta(days=32)
+                payback_date   = datetime(payback_date.year, payback_date.month, deal_repayment_day).date()
+                left_principal = userdeal_total_principal
+
+                if deal_repayment_method == Deal.RepaymentMethod.MATURE.value:
                     principal = 0
+                elif deal_repayment_method == Deal.RepaymentMethod.EQUAL_PRINCIPAL.value:
+                    principal = userdeal_total_principal // deal_repayment_period
 
-                elif deal.repayment_method == Deal.RepaymentMethod.EQUAL_PRINCIPAL.value:
-                    principal = left_principal // deal.repayment_period
+                for k in range(1, deal_repayment_period + 1):
+                    interest = round(left_principal * deal_interest_rate_per_month)
 
-                elif deal.repayment_method == Deal.RepaymentMethod.MIX.value:
-                    amount_per_month = left_principal / 20
+                    if deal_repayment_method == Deal.RepaymentMethod.MIX.value or \
+                       deal_repayment_method == Deal.RepaymentMethod.EQUAL_SUM.value:
+                        principal = int(total_amount_per_month - interest)
+                    
+                    state = UserPayback.State.PAID.value
+                    if deal_status == Deal.Status.DELAY.value:
+                        if delay_day < payback_date <= today:
+                            state = UserPayback.State.UNPAID.value
+                    elif deal_status == Deal.Status.OVERDUE.value:
+                        if overdue_day < payback_date <= today:
+                            state = UserPayback.State.UNPAID.value
+                    elif deal_status == Deal.Status.NONPERFORM.value:
+                        if nonperform_day < payback_date <= today:
+                            state = UserPayback.State.UNPAID.value
+                    elif deal_status == Deal.Status.NONPERFORM_COMPLETION.value:
+                        if payback_date > end_date + timedelta(days=200):
+                            state = UserPayback.State.UNPAID.value
 
-                elif deal.repayment_method == Deal.RepaymentMethod.EQUAL_SUM.value:
-                    tmp = (1 + interest_rate / 12) ** deal.repayment_period
-                    amount_per_month = left_principal * interest_rate / 12 * tmp / (tmp - 1)
-
-                for i in range(1, deal.repayment_period + 1):
-                    interest = round(left_principal * interest_rate / 365 * (payback_date - last_payback_date).days)
-
-                    if deal.repayment_method == Deal.RepaymentMethod.MIX.value or \
-                    deal.repayment_method == Deal.RepaymentMethod.EQUAL_SUM.value:
-                        principal = int(amount_per_month - interest)
-
-                    PaybackSchedule.objects.create(
-                        deal = deal,
-                        principal = principal,
-                        interest = interest,
+                    UserPayback.objects.create(
+                        id             = userpayback_id,
+                        users_deals_id = userdeal_id,
+                        interest       = interest,
+                        principal      = principal if k < deal_repayment_period else left_principal,
                         tax            = ((interest * 0.15) // 10) * 10,
                         commission     = int(interest * 0.15),
-                        payback_round  = i,
-                        payback_date   = payback_date
+                        payback_round  = k,
+                        payback_date   = payback_date,
+                        state          = UserPayback.State.TOBE_PAID.value if today < payback_date else state
                     )
 
+                    userpayback_id += 1
+                    payback_date    = payback_date.replace(day=1) + timedelta(days=32)
+                    payback_date    = datetime(payback_date.year, payback_date.month, deal_repayment_day).date()
                     left_principal -= principal
+                
+                userdeal_id += 1
 
-                    last_payback_date = payback_date
-                    payback_date      = payback_date.replace(day=1) + timedelta(days=32)
-                    payback_date      = datetime(payback_date.year, payback_date.month, deal.repayment_day).date()
-
-    def test_invest_deal_view_success(self):
+    def test_investment_portfolio_view_success(self):
         client = Client()
-
+        
         access_token = jwt.encode({"user_id": 1}, SECRET_KEY, ALGORITHM)
         headers      = {'HTTP_AUTHORIZATION': access_token}
-        body         = {
-        	"investments": [
-        		{
-        			"id": 3,
-        			"amount": 5000
-        		},
-        		{
-        			"id": 5,
-        			"amount": 10000
-        		}
-        	]
-        }
-        response = client.post("/investments", json.dumps(body), content_type="application/json", **headers)
-
-        self.assertEqual(response.status_code, 201)
-
+        response     = client.get("/investments/portfolio", **headers)
+        
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(),{
+            "results": {
+                "grade": {
+                    "grades": [
+                        "a",
+                        "b",
+                        "c",
+                        "d",
+                        "etc"
+                    ],
+                    "amounts": [
+                        600000,
+                        1800000,
+                        2880000,
+                        2520000,
+                        0
+                    ],
+                     "counts": [
+                        2,
+                        3,
+                        3,
+                        2,
+                        0
+                    ]
+                },
+                "earningRate": {
+                    "earningRates": [
+                        "underEight",
+                        "overEight",
+                        "overTen",
+                        "overTwelve"
+                    ],
+                    "amounts": [
+                        2760000,
+                        600000,
+                        2040000,
+                        2400000
+                    ],
+                    "counts": [
+                        5,
+                        1,
+                        2,
+                        2
+                    ]
+                },
+                "category": {
+                    "categories": [
+                        "personal",
+                        "company",
+                        "special",
+                        "estate",
+                        "etc"
+                    ],
+                    "amounts": [
+                        1080000,
+                        1560000,
+                        1320000,
+                        2040000,
+                        1800000
+                    ],
+                    "counts": [
+                        2,
+                        2,
+                        2,
+                        2,
+                        2
+                    ]
+                }
+            }
+        })
 
 if __name__ == '__main__':
     unittest.main()
