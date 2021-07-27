@@ -1,7 +1,8 @@
 from django.urls import path
 
-from investments.views import InvestmentHistoryView
+from investments.views import InvestmentHistoryView, InvestDealView
 
 urlpatterns = [
-    path('/history', InvestmentHistoryView.as_view())
+	path(''         , InvestDealView.as_view()),
+    path('/history' , InvestmentHistoryView.as_view())
 ]

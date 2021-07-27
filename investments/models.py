@@ -58,7 +58,8 @@ class PaybackSchedule(TimeStampModel):
         OPTION_23 = 10000000
 
     deal          = models.ForeignKey('deals.Deal', on_delete=models.PROTECT)
-    principal     = models.IntegerField(choices=Option.choices)
+    option        = models.IntegerField(choices=Option.choices)
+    principal     = models.IntegerField()
     interest      = models.IntegerField()
     tax           = models.IntegerField()
     commission    = models.IntegerField()

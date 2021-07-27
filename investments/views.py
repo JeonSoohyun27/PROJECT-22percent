@@ -1,10 +1,14 @@
+import json
+from datetime   import datetime, timedelta
+
 from django.views     import View
 from django.http      import JsonResponse
 from django.utils     import timezone
 from django.db.models import Sum, Q, Prefetch
+from django.db        import transaction
 
 from users.utils        import user_validator
-from investments.models import UserDeal, UserPayback
+from investments.models import PaybackSchedule, UserDeal, UserPayback
 from deals.models       import Deal
 
 class InvestmentHistoryView(View):
@@ -66,3 +70,44 @@ class InvestmentHistoryView(View):
 
         except ValueError:
             return JsonResponse({"message":'VALUE_ERROR'}, status=400)
+
+class InvestDealView(View):
+    @user_validator
+    def post(self, request):
+        try:
+            data = json.loads(request.body)
+            user = request.user
+
+            with transaction.atomic():
+                for investment in data['investments']:
+                    deal = Deal.objects.get(id=investment['id'])
+
+                    userdeal = UserDeal.objects.create(
+                        user   = user,
+                        deal   = deal,
+                        amount = investment['amount']
+                    )
+                    
+                    paybacks = PaybackSchedule.objects.filter(deal=deal, principal=investment['amount'])
+
+                    for payback in PaybackSchedule.objects.all():
+                        print(payback.principal)
+
+                    for payback in paybacks:
+                        userpayback = UserPayback.objects.create(
+                            user_deals    = userdeal,
+                            principal     = payback.principal,
+                            interest      = payback.interest,
+                            tax           = payback.tax,
+                            commission    = payback.commission,
+                            payback_round = payback.round,
+                            payback_date  = payback.date,
+                            state         = UserPayback.State.TOBE_PAID.value,
+                        )
+                        print("$#^%@@#%@#$%@#$")
+                        print(userpayback.values())
+
+            return JsonResponse({"message": "SUCCESS"}, status=201)
+
+        except KeyError:
+            return JsonResponse({"message": "KEY_ERROR"}, status=400)
