@@ -114,7 +114,7 @@ class DealsView(View):
                         'amount'     : deal.net_amount,
                         'titleImage' : deal.mortgages[0].image[0].image_url,
                         'startDate'  : deal.start_date
-                    } for deal in Deal.objects.filter(start_date__gt=timezone.localtime()).prefetch_related(
+                    } for deal in Deal.objects.filter(status=Deal.Status.SCHEDULED.value, category=Deal.Category.MORTGAGE.value).prefetch_related(
                 Prefetch(
                     'mortgage_set', 
                     queryset=Mortgage.objects.prefetch_related(
