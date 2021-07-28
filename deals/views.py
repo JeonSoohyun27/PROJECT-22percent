@@ -1,13 +1,13 @@
 import math
 
-from django.db.models import Sum, Prefetch, Q, F
+from django.db.models import Sum, Prefetch, Q, F, Sum
 from django.views     import View
 from django.http      import JsonResponse
 from django.utils     import timezone
 
 from users.utils        import public_login
 from deals.models       import Deal, Mortgage, MortgageImage
-from investments.models import UserDeal
+from investments.models import UserDeal,PaybackSchedule 
 from users.models       import User
 
 class DealDetailView(View):
@@ -29,27 +29,26 @@ class DealDetailView(View):
                 "amount"          : deal.userdeal_set.aggregate(total_price=Sum('amount'))['total_price'] or 0,
                 "amountPercentage": int((deal.userdeal_set.aggregate(total_price=Sum('amount'))['total_price'] or 0)/deal.net_amount)*100,
             }
-
+            
             if Deal.Category(deal.category).label == '부동산 담보대출': 
                 mortgage = Mortgage.objects.get(deal=deal)
                 mortgage_info = {
-                    "latitude"                : mortgage.latitude,
-                    "longitude"               : mortgage.longitude,
-                    "estimatedRecovery"       : mortgage.estimated_recovery,
-                    "appraisedValue"          : mortgage.appraised_value,
-                    "seniorLoanAmount"        : mortgage.senior_loan_amount,
-                    "netAmount"               : deal.net_amount,
-                    "collateralReserve"       : mortgage.appraised_value - (mortgage.senior_loan_amount+deal.net_amount),
-                    "address"                 : mortgage.address,
-                    "completedDate"           : mortgage.completed_date,
-                    "scale"                   : mortgage.scale,
-                    "supplyArea"              : mortgage.supply_area,
-                    "usingArea"               : mortgage.using_area,
-                    "floor"                   : mortgage.floors,
-                    "isUsage"                 : mortgage.is_usage,
-                    "sellingPointTitle"       : mortgage.selling_point_title,
-                    "sellingPointDescription" : mortgage.selling_point_description,
-                    "mortgageImage"           : [image.image_url for image in mortgage.mortgageimage_set.all()]
+                    "latitude"               : mortgage.latitude,
+                    "longitude"              : mortgage.longitude,
+                    "estimatedRecovery"      : mortgage.estimated_recovery,
+                    "appraisedValue"         : mortgage.appraised_value,
+                    "seniorLoanAmount"       : mortgage.senior_loan_amount,
+                    "address"                : mortgage.address,
+                    "completedDate"          : mortgage.completed_date,
+                    "scale"                  : mortgage.scale,
+                    "supplyArea"             : mortgage.supply_area,
+                    "usingArea"              : mortgage.using_area,
+                    "floor"                  : mortgage.floors,
+                    "isUsage"                : mortgage.is_usage,
+                    "sellingPointTitle"      : mortgage.selling_point_title,
+                    "sellingPointDescription": mortgage.selling_point_description,
+                    "mortgageImage"          : [image.image_url for image in mortgage.mortgageimage_set.all()],
+                    "collateralReserve"      : mortgage.appraised_value - (mortgage.senior_loan_amount+deal.net_amount)
                 }
                 return JsonResponse({"dealInfo":deal_info,"mortgageInfo":mortgage_info}, status=200)
             return JsonResponse({"dealInfo":deal_info}, status=200)
@@ -152,3 +151,36 @@ class LoanAmountView(View):
         }
 
         return JsonResponse({"result": result}, status=200)
+
+class DealPaybackView(View):
+    @public_login
+    def get(self, request, deal_id):
+        user    = request.user
+        deposit = user.deposit_amount if user else None
+
+        options = {}
+
+        for payback_schedule in PaybackSchedule.Option:
+            deal = Deal.objects.annotate(
+                total_tax        = Sum('paybackschedule__tax', filter=Q(paybackschedule__option=payback_schedule.value)),
+                total_interest   = Sum('paybackschedule__interest', filter=Q(paybackschedule__option=payback_schedule.value)),
+                total_commission = Sum('paybackschedule__commission', filter=Q(paybackschedule__option=payback_schedule.value)),
+                reality_price    = payback_schedule.value + F('total_interest') - F('total_tax') - F('total_commission')
+            ).get(id=deal_id)
+
+            options[payback_schedule.value] = {
+                "total_tax"        : deal.total_tax,
+                "total_interest"   : deal.total_interest,
+                "total_commission" : deal.total_commission,
+                "reality_price"    : deal.reality_price
+            }
+
+        results = {
+            'deposit'      : deposit,
+            'invested'     : UserDeal.objects.filter(user=user, deal_id=deal_id).exists(),
+            'status'       : Deal.Status(deal.status).name,
+            'invest_count' : UserDeal.objects.filter(deal_id=deal_id).count(),
+            'options'      : options
+        }
+        
+        return JsonResponse({"results": results}, status=200)
