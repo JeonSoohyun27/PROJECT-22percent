@@ -67,4 +67,4 @@ class PaybackSchedule(TimeStampModel):
     payback_date  = models.DateField()
 
     class Meta:
-        db_table = 'debtor_paybacks'
+        db_table = 'payback_schedules'
