@@ -98,49 +98,47 @@ class DealDetailViewTestCase(TestCase):
     def test_deal_detail_category_1_success(self):
         client   = Client()
         response = client.get('/deals/1')
+
         self.assertEqual(response.json(),
         {
-            "dealInfo": [
-                {
-                    "name"           : "대환대출",
-                    "category"       : "부동산 담보대출",
-                    "grade"          : "A+",
-                    "earningRate"    : "10.00",
-                    "repaymentPeriod": 12,
-                    "repaymentMethod": "혼합",
-                    "netAmount"      : 5100000,
-                    "repaymentDay"   : 25,
-                    "reason"         : "타기관 대출 상환",
-                    "debtor"         : "안당하",
-                    "creditScore"    : [
-                        627,
-                    ],
-                    'amount' : 0,
-                    'amountPercentage' : 0,
-                    'investmentOption' : [5000, 10000, 20000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 1500000, 2000000, 2500000, 3000000, 3500000, 4000000, 4500000, 5000000, 6000000, 7000000, 8000000, 9000000, 10000000],
-                }
-            ],
-            "mortgageInfo": [
-                {
-                    "latitude"               : "37.846111",
-                    "longitude"              : "126.987581",
-                    "estimatedRecovery"      : 1123200000,
-                    "appraisedValue"         : 1021000000,
-                    "seniorLoanAmount"       : 233510000,
-                    "address"                : "경기 양주시 광적면 덕도리 86",
-                    "completedDate"          : "2020-06-09",
-                    "scale"                  : "175세대 / 9개동",
-                    "supplyArea"             : "146.26",
-                    "usingArea"              : "110.74",
-                    "floor"                  : "9층 / 15층",
-                    "isUsage"                : False,
-                    "sellingPointTitle"      : "신축 브랜드 아파트",
-                    "sellingPointDescription": "2020년 준공된 신축 브랜드 아파트입니다.",
-                    "mortgageImage"          : [
-                            'https://naver.com'
-                        ]
-                }
-            ]
+            "dealInfo":{
+                "name":"대환대출",
+                "category":"부동산 담보대출",
+                "grade":"A+",
+                "earningRate":"10.00",
+                "repaymentPeriod":12,
+                "repaymentMethod":"혼합",
+                "netAmount":5100000,
+                "repaymentDay":25,
+                "reason":"타기관 대출 상환",
+                "debtor":"안당하",
+                "creditScore":[
+                    627
+                ],
+                "amount":0,
+                "amountPercentage":0
+            },
+            "mortgageInfo":{
+                "latitude":"37.846111",
+                "longitude":"126.987581",
+                "estimatedRecovery":1123200000,
+                "appraisedValue":1021000000,
+                "seniorLoanAmount":233510000,
+                "netAmount":5100000,
+                "collateralReserve":782390000,
+                "address":"경기 양주시 광적면 덕도리 86",
+                "completedDate":"2020-06-09",
+                "scale":"175세대 / 9개동",
+                "supplyArea":"146.26",
+                "usingArea":"110.74",
+                "floor":"9층 / 15층",
+                "isUsage":False,
+                "sellingPointTitle":"신축 브랜드 아파트",
+                "sellingPointDescription":"2020년 준공된 신축 브랜드 아파트입니다.",
+                "mortgageImage":[
+                    "https://naver.com"
+                ]
+            }
         }
     )
 
@@ -149,26 +147,23 @@ class DealDetailViewTestCase(TestCase):
         response = client.get('/deals/2')
         self.assertEqual(response.json(),
         {
-            "dealInfo": [
-                {
-                    "name"           : "대환대출",
-                    "category"       : "개인신용",
-                    "grade"          : "A",
-                    "earningRate"    : "15.92",
-                    "repaymentPeriod": 12,
-                    "repaymentMethod": "원리금균등",
-                    "netAmount"      : 6670000,
-                    "repaymentDay"   : 25,
-                    "reason"         : "타기관 대출 상환",
-                    "debtor"         : "이하서",
-                    "creditScore"    : [
-                        711,
-                    ],
-                    'amount' : 0,
-                    'amountPercentage' : 0,
-                    'investmentOption' : [5000, 10000, 20000, 50000, 100000, 200000, 300000, 400000, 500000, 1000000, 1500000, 2000000, 2500000, 3000000, 3500000, 4000000, 4500000, 5000000, 6000000, 7000000, 8000000, 9000000, 10000000],
-                }
-            ]
+            "dealInfo":{
+                "name":"대환대출",
+                "category":"개인신용",
+                "grade":"A",
+                "earningRate":"15.92",
+                "repaymentPeriod":12,
+                "repaymentMethod":"원리금균등",
+                "netAmount":6670000,
+                "repaymentDay":25,
+                "reason":"타기관 대출 상환",
+                "debtor":"이하서",
+                "creditScore":[
+                    711
+                ],
+                "amount":0,
+                "amountPercentage":0
+            }
         }
     )
 
