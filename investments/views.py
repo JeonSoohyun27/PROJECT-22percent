@@ -6,7 +6,7 @@ from django.views     import View
 from django.http      import JsonResponse, HttpResponse
 from django.utils     import timezone
 from django.db.models import Sum, Q, Prefetch
-from django.db        import transaction
+from django.db        import transaction, IntegrityError
 
 from users.utils        import user_validator
 from investments.utils  import Portfolio
@@ -313,3 +313,6 @@ class InvestmentDealView(View):
         
         except Deal.DoesNotExist:
             return JsonResponse({"message": "INVALID_DEAL"}, status=400)
+
+        except IntegrityError:
+            return JsonResponse({"message": "INVESTD_DEAL"}, status=400)
