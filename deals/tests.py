@@ -1,7 +1,9 @@
+import bcrypt, jwt
 from datetime import datetime, timedelta
 
 from django.test  import TestCase, Client
 
+from my_settings        import SECRET_KEY, ALGORITHM
 from users.models       import Bank, User
 from investments.models import UserDeal, UserPayback
 from deals.models       import (
@@ -181,6 +183,8 @@ class DealDetailViewTestCase(TestCase):
 class DealTest(TestCase):
     @classmethod
     def setUpTestData(cls):
+        hashed_password = bcrypt.hashpw("P@ssword".encode('utf-8'), bcrypt.gensalt())
+
         Bank.objects.create(
             id   = 1,
             name = '신한은행'
@@ -189,7 +193,7 @@ class DealTest(TestCase):
         User.objects.create(
             id                        = 1,
             email                     = 'testman@gmail.com',
-            password                  = '1asdfkjadkf',
+            password                  = hashed_password.decode(),
             name                      = '이준영',
             deposit_amount            = 1000000,
             deposit_account           = '10202309432933',
@@ -598,8 +602,85 @@ class DealTest(TestCase):
             amount  = 100000
         )
         
+    def test_mortgage_dealview_with_token_get_success(self):
+        client   = Client()
+
+        access_token = jwt.encode({"user_id": 1}, SECRET_KEY, ALGORITHM)
+        headers      = {'HTTP_AUTHORIZATION': access_token}
+        response     = client.get("/deals?category=mortgage", **headers)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(),
+            {
+                "recruitingResults" : [
+                    {
+                        "index"           : 1,
+                        "title"           : "송도아파트",
+                        "grade"           : "A",
+                        "period"          : 12,
+                        "earningRate"     : "8.14",
+                        "amount"          : 9000000,
+                        "titleImage"      : "www.naver.com",
+                        "startDate"       : "2021-06-30",
+                        "progress"        : 10,
+                        "investmentAmount": 900000,
+                        'invested'        : True
+                    },
+                    {
+                        "index"           : 2,
+                        "title"           : "롯데아파트",
+                        "grade"           : "A",
+                        "period"          : 12,
+                        "earningRate"     : "8.14",
+                        "amount"          : 9000000,
+                        "titleImage"      : "www.naver2.com",
+                        "startDate"       : "2021-06-30",
+                        "progress"        : 20,
+                        "investmentAmount": 1800000,
+                        'invested'        : True
+                    },
+                    {
+                        "index"           : 5,
+                        "title"           : "서울아파트",
+                        "grade"           : "A+",
+                        "period"          : 12,
+                        "earningRate"     : "8.14",
+                        "amount"          : 9000000,
+                        "titleImage"      : "www.naver8.com",
+                        "startDate"       : "2021-06-30",
+                        "progress"        : 5,
+                        "investmentAmount": 450000,
+                        'invested'        : True
+                    },
+                    {
+                        "index"           : 6,
+                        "title"           : "선릉아파트",
+                        "grade"           : "A+",
+                        "period"          : 12,
+                        "earningRate"     : "8.14",
+                        "amount"          : 9000000,
+                        "titleImage"      : "www.naver10.com",
+                        "startDate"       : "2021-06-30",
+                        "progress"        : 10,
+                        "investmentAmount": 900000,
+                        'invested'        : True
+                    }
+                ],
+                "scheduledResults" : [
+                    {
+                        "index"      : 4,
+                        "title"      : "군포아파트",
+                        "period"     : 12,
+                        "earningRate": "8.14",
+                        "amount"     : 9000000,
+                        "titleImage" : "www.naver6.com",
+                        "startDate"  : "2022-06-30"
+                    }
+                ]
+            }
+        )
     
-    def test_mortgage_dealview_get_success(self):
+    def test_mortgage_dealview_without_token_get_success(self):
         client   = Client()
         response = client.get('/deals?category=mortgage')
 
@@ -617,7 +698,8 @@ class DealTest(TestCase):
                         "titleImage"      : "www.naver.com",
                         "startDate"       : "2021-06-30",
                         "progress"        : 10,
-                        "investmentAmount": 900000
+                        "investmentAmount": 900000,
+                        'invested'        : False
                     },
                     {
                         "index"           : 2,
@@ -629,7 +711,8 @@ class DealTest(TestCase):
                         "titleImage"      : "www.naver2.com",
                         "startDate"       : "2021-06-30",
                         "progress"        : 20,
-                        "investmentAmount": 1800000
+                        "investmentAmount": 1800000,
+                        'invested'        : False
                     },
                     {
                         "index"           : 5,
@@ -641,7 +724,8 @@ class DealTest(TestCase):
                         "titleImage"      : "www.naver8.com",
                         "startDate"       : "2021-06-30",
                         "progress"        : 5,
-                        "investmentAmount": 450000
+                        "investmentAmount": 450000,
+                        'invested'        : False
                     },
                     {
                         "index"           : 6,
@@ -653,7 +737,8 @@ class DealTest(TestCase):
                         "titleImage"      : "www.naver10.com",
                         "startDate"       : "2021-06-30",
                         "progress"        : 10,
-                        "investmentAmount": 900000
+                        "investmentAmount": 900000,
+                        'invested'        : False
                     }
                 ],
                 "scheduledResults" : [
@@ -689,7 +774,8 @@ class DealTest(TestCase):
                         "titleImage"      : "www.naver4.com",
                         "startDate"       : "2020-06-30",
                         "progress"        : 100,
-                        "investmentAmount": 9000000
+                        "investmentAmount": 9000000,
+                        'invested'        : False
                     }
                 ]
             }
@@ -714,7 +800,8 @@ class DealTest(TestCase):
                         "titleImage"      : None,
                         "startDate"       : "2021-06-30",
                         "progress"        : 1,
-                        "investmentAmount": 100000
+                        "investmentAmount": 100000,
+                        'invested'        : False
                     }
                 ]
             }

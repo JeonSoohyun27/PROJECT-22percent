@@ -5,7 +5,8 @@ from django.views     import View
 from django.http      import JsonResponse
 from django.utils     import timezone
 
-from deals.models       import Deal, Debtor, Mortgage, MortgageImage, CreditScore
+from users.utils        import public_login
+from deals.models       import Deal, Mortgage, MortgageImage
 from investments.models import UserDeal
 from users.models       import User
 
@@ -57,8 +58,10 @@ class DealDetailView(View):
             return JsonResponse({"message":"INVALID_ERROR"}, status=400)
 
 class DealsView(View):
+    @public_login
     def get(self, request):
         try:
+            signed_user = request.user
             deal_closed = request.GET.get('closed', False)
             category    = request.GET.get('category', False)
             PAGE_SIZE   = 12
@@ -84,6 +87,7 @@ class DealsView(View):
                 q.add(Q(end_date__gte=timezone.localdate()) & Q(start_date__lte=timezone.localdate()), q.AND)
 
             deals = Deal.objects.annotate(net_reservation=Sum('userdeal__amount')).filter(q).prefetch_related(
+                Prefetch('userdeal_set', queryset=UserDeal.objects.filter(user=signed_user), to_attr='userdeals'),
                 Prefetch(
                     'mortgage_set', 
                     queryset=Mortgage.objects.prefetch_related(
@@ -91,7 +95,8 @@ class DealsView(View):
                             'mortgageimage_set', 
                             queryset=MortgageImage.objects.all(), 
                             to_attr='image')
-                            ), to_attr='mortgages'))
+                            ), to_attr='mortgages')
+                    )
 
             results = [
                 {
@@ -105,7 +110,8 @@ class DealsView(View):
                                         if categories[category] == Deal.Category.MORTGAGE.value else None,
                     'startDate'       : deal.start_date,
                     'progress'        : math.trunc(((deal.net_reservation or 0) / deal.net_amount) * 100),
-                    'investmentAmount': deal.net_reservation or 0
+                    'investmentAmount': deal.net_reservation or 0,
+                    'invested'        : True if deal.userdeals else False
                 } for deal in deals[offset:limit]
             ]
 
