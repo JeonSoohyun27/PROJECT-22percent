@@ -160,15 +160,15 @@ class DealPaybackView(View):
 
         options = {}
 
-        for payback_schedule in PaybackSchedule.Option:
+        for option in PaybackSchedule.Option:
             deal = Deal.objects.annotate(
-                total_tax        = Sum('paybackschedule__tax', filter=Q(paybackschedule__option=payback_schedule.value)),
-                total_interest   = Sum('paybackschedule__interest', filter=Q(paybackschedule__option=payback_schedule.value)),
-                total_commission = Sum('paybackschedule__commission', filter=Q(paybackschedule__option=payback_schedule.value)),
-                reality_price    = payback_schedule.value + F('total_interest') - F('total_tax') - F('total_commission')
+                total_tax        = Sum('paybackschedule__tax', filter=Q(paybackschedule__option=option.value)),
+                total_interest   = Sum('paybackschedule__interest', filter=Q(paybackschedule__option=option.value)),
+                total_commission = Sum('paybackschedule__commission', filter=Q(paybackschedule__option=option.value)),
+                reality_price    = option.value + F('total_interest') - F('total_tax') - F('total_commission')
             ).get(id=deal_id)
 
-            options[payback_schedule.value] = {
+            options[option.value] = {
                 "total_tax"        : deal.total_tax,
                 "total_interest"   : deal.total_interest,
                 "total_commission" : deal.total_commission,
